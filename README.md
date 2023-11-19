@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./doc/medium-logo.svg" width="300" />
+  <img src="./doc/medium-logo.svg" width="200" />
   <h3 align="center">Medium for User Generated Content Distribution</h3>
   <p align="center"><strong>Secure and Compliant solution of distributing user-generated content.</strong></p>
 
