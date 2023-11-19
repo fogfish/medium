@@ -1,0 +1,24 @@
+"[#] ci/cd":
+ - '.github/*'
+ - '.github/**/*'
+
+"[#] deps":
+ - 'go.mod'
+ - 'go.sum'
+
+"[#] doc":
+ - '*.md'
+ - 'doc/*'
+ - 'doc/**/*'
+ - 'examples/**/*'
+
+"[#] app":
+ - '*.go'
+ - 'cmd/*'
+ - 'cmd/**/*'
+ - 'internal/*'
+ - 'internal/**/*'
+
+"[#] cdk":
+ - 'awsmedium/*'
+ - 'awsmedium/**/*'
