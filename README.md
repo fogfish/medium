@@ -39,6 +39,20 @@ The construct allow definition of multiple processing profiles following a simpl
 ƒ : jpeg ⟼ {small, thumb, cover, large, origin}
 ```
 
+## Key features
+
+* Out-of-the-box, **no-code** infrastructure for media object processing and distribution. 
+* **Quarantine** uploaded media files before its distribution.
+* Removal of EXIF metadata from uploaded images, supporting **privacy**.
+* High-quality and configurable **down scale** of upload images to multiple resolutions.
+* Support **download of 3rd party media** from various content sources.
+* Captures failed processing jobs in dead letter queue (AWS SQS)
+
+**Supported media formats**
+- [x] JPEG : Digital Photography
+- [x] JSON : Symbol links to media available in 3rd party content source.
+- [x] [Open Issues if new format is required](https://github.com/fogfish/medium/issue)
+  
 
 ## Quick Start
 
