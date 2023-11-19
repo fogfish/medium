@@ -46,6 +46,7 @@ The construct allow definition of multiple processing profiles following a simpl
 * Removal of EXIF metadata from uploaded images, supporting **privacy**.
 * High-quality and configurable **down scale** of upload images to multiple resolutions.
 * Support **download of 3rd party media** from various content sources.
+* Captures failed processing jobs in dead letter queue (AWS SQS)
 
 **Supported media formats**
 - [x] JPEG : Digital Photography
