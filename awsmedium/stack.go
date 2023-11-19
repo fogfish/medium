@@ -9,6 +9,8 @@
 package awsmedium
 
 import (
+	"strconv"
+
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awscloudfront"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
@@ -187,6 +189,8 @@ func (stack *Stack) createMediaBucket(props *StackProps) {
 func (stack *Stack) createInboxCodec(props *StackProps, profile medium.Profile) {
 	path := profile.Path
 	name := stack.resource(props, "inbox-codec-"+path)
+	tout := props.Deadline.ToSeconds(&awscdk.TimeConversionOptions{})
+
 	sink := events3.NewSink(stack.Stack, jsii.String("InboxCodec"+path),
 		&events3.SinkProps{
 			Bucket: stack.Inbox,
@@ -208,10 +212,11 @@ func (stack *Stack) createInboxCodec(props *StackProps, profile medium.Profile) 
 					DeadLetterQueue:        stack.dlq,
 					MemorySize:             props.MemorySize,
 					Environment: &map[string]*string{
-						"CONFIG_VSN":           &props.Version,
-						"CONFIG_STORE_INBOX":   stack.Inbox.BucketName(),
-						"CONFIG_STORE_MEDIA":   stack.Media.BucketName(),
-						"CONFIG_CODEC_PROFILE": jsii.String(profile.String()),
+						"CONFIG_VSN":                  &props.Version,
+						"CONFIG_STORE_INBOX":          stack.Inbox.BucketName(),
+						"CONFIG_STORE_MEDIA":          stack.Media.BucketName(),
+						"CONFIG_CODEC_PROFILE":        jsii.String(profile.String()),
+						"CONFIG_SWARM_TIME_TO_FLIGHT": jsii.String(strconv.Itoa(int(*tout))),
 					},
 				},
 			},
@@ -219,6 +224,7 @@ func (stack *Stack) createInboxCodec(props *StackProps, profile medium.Profile) 
 	)
 	stack.Inbox.GrantRead(sink.Handler, nil)
 	stack.Media.GrantWrite(sink.Handler, nil, nil)
+
 }
 
 func (stack *Stack) createCloudFront(props *StackProps) {

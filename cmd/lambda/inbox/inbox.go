@@ -25,8 +25,9 @@ import (
 func main() {
 	q, err := events3.New(
 		os.Getenv("CONFIG_STORE_INBOX"),
-		swarm.WithTimeToFlight(60*time.Second), // TODO: configurable
-		// WithStdErr
+		swarm.WithLogStdErr(),
+		swarm.WithTimeToFlight(60*time.Second),
+		swarm.WithConfigFromEnv(),
 	)
 	if err != nil {
 		slog.Error("Failed to init events3 broker")

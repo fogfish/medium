@@ -14,7 +14,7 @@ require (
 	github.com/fogfish/logger/v3 v3.1.0
 	github.com/fogfish/scud v0.6.0
 	github.com/fogfish/stream v0.11.3
-	github.com/fogfish/swarm v0.13.1
+	github.com/fogfish/swarm v0.13.2
 	golang.org/x/sync v0.5.0
 )
 
