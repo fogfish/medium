@@ -27,11 +27,6 @@ import (
 type StackProps struct {
 	*awscdk.StackProps
 
-	// Version of the deployment, allowing Green/Blue deployment patterns
-	// Default: latest
-	//
-	Version string
-
 	// Configuration profiles (mandatory).
 	// Each profile defines:
 	// - the prefix of S3 Key identify the profile
@@ -107,7 +102,7 @@ func (props *StackProps) assert() {
 
 type Stack struct {
 	awscdk.Stack
-	namespace    *string
+	namespace    string
 	dlq          awssqs.Queue
 	Distribution awscloudfront.CloudFrontWebDistribution
 	Inbox        awss3.Bucket
@@ -117,14 +112,9 @@ type Stack struct {
 func NewStack(app awscdk.App, id *string, props *StackProps) *Stack {
 	props.assert()
 
-	stackID := *id
-	if props.Version != "" {
-		stackID += "-" + props.Version
-	}
-
 	stack := &Stack{
-		Stack:     awscdk.NewStack(app, jsii.String(stackID), props.StackProps),
-		namespace: id,
+		Stack:     awscdk.NewStack(app, id, props.StackProps),
+		namespace: *id,
 	}
 
 	stack.createDLQ(props)
@@ -141,16 +131,12 @@ func NewStack(app awscdk.App, id *string, props *StackProps) *Stack {
 	return stack
 }
 
-func (stack *Stack) resource(props *StackProps, id string) string {
-	if props.Version == "" {
-		return *stack.namespace + "-" + id
-	}
-
-	return *stack.namespace + "-" + id + "-" + props.Version
+func (stack *Stack) resource(id string) string {
+	return stack.namespace + "-" + id
 }
 
 func (stack *Stack) createDLQ(props *StackProps) {
-	name := stack.resource(props, "dlq")
+	name := stack.resource("dlq")
 
 	stack.dlq = awssqs.NewQueue(stack.Stack, jsii.String("DeadLetterQueue"),
 		&awssqs.QueueProps{
@@ -161,7 +147,7 @@ func (stack *Stack) createDLQ(props *StackProps) {
 }
 
 func (stack *Stack) createInboxBucket(props *StackProps) {
-	name := stack.resource(props, "inbox")
+	name := stack.resource("inbox")
 
 	stack.Inbox = awss3.NewBucket(stack.Stack, jsii.String("Inbox"),
 		&awss3.BucketProps{
@@ -177,7 +163,7 @@ func (stack *Stack) createInboxBucket(props *StackProps) {
 }
 
 func (stack *Stack) createMediaBucket(props *StackProps) {
-	name := stack.resource(props, "media")
+	name := stack.resource("media")
 
 	stack.Media = awss3.NewBucket(stack.Stack, jsii.String("Media"),
 		&awss3.BucketProps{
@@ -188,7 +174,7 @@ func (stack *Stack) createMediaBucket(props *StackProps) {
 
 func (stack *Stack) createInboxCodec(props *StackProps, profile medium.Profile) {
 	path := profile.Path
-	name := stack.resource(props, "inbox-codec-"+path)
+	name := stack.resource("inbox-codec-" + path)
 	tout := props.Deadline.ToSeconds(&awscdk.TimeConversionOptions{})
 
 	sink := events3.NewSink(stack.Stack, jsii.String("InboxCodec"+path),
@@ -212,7 +198,6 @@ func (stack *Stack) createInboxCodec(props *StackProps, profile medium.Profile) 
 					DeadLetterQueue:        stack.dlq,
 					MemorySize:             props.MemorySize,
 					Environment: &map[string]*string{
-						"CONFIG_VSN":                  &props.Version,
 						"CONFIG_STORE_INBOX":          stack.Inbox.BucketName(),
 						"CONFIG_STORE_MEDIA":          stack.Media.BucketName(),
 						"CONFIG_CODEC_PROFILE":        jsii.String(profile.String()),
@@ -224,7 +209,6 @@ func (stack *Stack) createInboxCodec(props *StackProps, profile medium.Profile) 
 	)
 	stack.Inbox.GrantRead(sink.Handler, nil)
 	stack.Media.GrantWrite(sink.Handler, nil, nil)
-
 }
 
 func (stack *Stack) createCloudFront(props *StackProps) {

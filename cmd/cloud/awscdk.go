@@ -36,10 +36,14 @@ func main() {
 		},
 	}
 
-	awsmedium.NewStack(app, jsii.String("medium"),
+	stack := "medium"
+	if vsn != "" {
+		stack += "-" + vsn
+	}
+
+	awsmedium.NewStack(app, jsii.String(stack),
 		&awsmedium.StackProps{
 			StackProps:        config,
-			Version:           vsn,
 			Profiles:          awsmedium.Profiles[cfg],
 			Site:              jsii.String(FromContext(app, "site")),
 			TlsCertificateArn: jsii.String(FromContext(app, "tls-cert-arn")),
