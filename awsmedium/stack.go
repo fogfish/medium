@@ -22,6 +22,11 @@ import (
 	"github.com/fogfish/medium"
 	"github.com/fogfish/scud"
 	"github.com/fogfish/swarm/broker/events3"
+
+	// Note: required to import engine so that all deps used it are lifted to client.
+	//       app that uses only stack fails to build if image manipulation library is not imported.
+	//       e.g. github.com/anthonynsimon/bild
+	_ "github.com/fogfish/medium/internal/awslambda/inbox"
 )
 
 type StackProps struct {
