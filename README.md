@@ -102,6 +102,22 @@ cdk deploy \
   -c tls-cert-arn=arn:aws:acm:us-east-1:000000000000:certificate/dad...cafe
 ```
 
+On the completion, it creates entire infrastructure as defined by the diagram above. It uses S3 bucket `medium-{vsn}-inbox` as input and CDN `https://{site}` as output.
+
+Upload media file to `s3://medium-{vsn}-inbox` the root folder is name of the profile (e.g. `photo`). It might contain any arbitrary path.
+
+```bash
+aws s3 cp my-media.jpg s3://medium-{vsn}-inbox/photo/a/b/c/my-media.jpg
+```
+
+Processed object are accessible at CDN in few seconds. The processing preserves the absolute path but extension is inflated with resolution.
+
+```bash
+curl https://{site}/photo/a/b/c/my-media.{resolution}.jpg
+
+curl https://{site}/photo/a/b/c/my-media.large-1080x1920.jpg
+```
+
 ### Integration
 
 The construct is also importable to any other AWS CDK app. See for usage example [awscdk.go](./cmd/cloud/awscdk.go). Use Config DLS to declare own processing pipeline.

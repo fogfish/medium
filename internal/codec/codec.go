@@ -11,9 +11,10 @@ package codec
 import (
 	"context"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/fogfish/gurl/v2/http"
 	"github.com/fogfish/medium"
-	"github.com/fogfish/swarm/broker/events3"
+	"github.com/fogfish/swarm"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -23,20 +24,20 @@ type Codec struct {
 	writer *Writer
 }
 
-func NewCodec(profile medium.Profile, getter Getter, putter Putter) *Codec {
+func NewCodec(profile medium.Profile, rfs ReaderFS, wfs WriterFS) *Codec {
 	// defines HTTP client to download media objects
 	client := http.Client()
 	client.CheckRedirect = nil
 	stack := http.New(http.WithClient(client))
 
-	reader := NewReader(stack, getter)
+	reader := NewReader(stack, rfs)
 
 	scaler := make([]*Scaler, len(profile.Resolutions))
 	for i, r := range profile.Resolutions {
 		scaler[i] = NewScaler(r)
 	}
 
-	writer := NewWriter(putter)
+	writer := NewWriter(wfs)
 
 	return &Codec{
 		reader: reader,
@@ -45,7 +46,7 @@ func NewCodec(profile medium.Profile, getter Getter, putter Putter) *Codec {
 	}
 }
 
-func (codec *Codec) Process(ctx context.Context, evt *events3.Event) error {
+func (codec *Codec) Process(ctx context.Context, evt swarm.Msg[*events.S3EventRecord]) error {
 	media, err := codec.reader.Get(ctx, evt)
 	if err != nil {
 		return errCodecIO.New(err)

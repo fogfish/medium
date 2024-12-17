@@ -84,7 +84,7 @@ type StackProps struct {
 }
 
 func (props *StackProps) assert() {
-	if props.Profiles == nil || len(props.Profiles) == 0 {
+	if len(props.Profiles) == 0 {
 		panic("\n\nMedia processing profiles are not defined.")
 	}
 
@@ -109,7 +109,7 @@ type Stack struct {
 	awscdk.Stack
 	namespace    string
 	dlq          awssqs.Queue
-	Distribution awscloudfront.CloudFrontWebDistribution
+	Distribution awscloudfront.Distribution
 	Inbox        awss3.Bucket
 	Media        awss3.Bucket
 }
@@ -167,7 +167,7 @@ func (stack *Stack) createInboxBucket(props *StackProps) {
 	})
 }
 
-func (stack *Stack) createMediaBucket(props *StackProps) {
+func (stack *Stack) createMediaBucket(_ *StackProps) {
 	name := stack.resource("media")
 
 	stack.Media = awss3.NewBucket(stack.Stack, jsii.String("Media"),
@@ -193,9 +193,9 @@ func (stack *Stack) createInboxCodec(props *StackProps, profile medium.Profile) 
 					{Prefix: jsii.String(path)},
 				},
 			},
-			Lambda: &scud.FunctionGoProps{
-				SourceCodePackage: "github.com/fogfish/medium",
-				SourceCodeLambda:  "cmd/lambda/inbox",
+			Function: &scud.FunctionGoProps{
+				SourceCodeModule: "github.com/fogfish/medium",
+				SourceCodeLambda: "cmd/lambda/inbox",
 				FunctionProps: &awslambda.FunctionProps{
 					FunctionName:           jsii.String(name),
 					Timeout:                props.Deadline,

@@ -14,7 +14,6 @@ import (
 	"log/slog"
 
 	"github.com/anthonynsimon/bild/transform"
-	"github.com/fogfish/curie"
 	"github.com/fogfish/medium"
 )
 
@@ -30,7 +29,7 @@ func NewScaler(resolution medium.Resolution) *Scaler {
 
 func (s Scaler) Process(ctx context.Context, media *Media) (*Media, error) {
 	slog.Debug("scaling media object",
-		slog.String("key", media.key.PathKey()),
+		slog.String("path", media.path),
 		slog.Group("source", "x", media.image.Bounds().Dx(), "y", media.image.Bounds().Dy()),
 		slog.Group("target", "x", s.resolution.Width, "y", s.resolution.Height),
 	)
@@ -42,19 +41,14 @@ func (s Scaler) Process(ctx context.Context, media *Media) (*Media, error) {
 	return s.scaleTo(ctx, media)
 }
 
-func (s Scaler) replica(ctx context.Context, media *Media) (*Media, error) {
-	key := &medium.Media{
-		HashID: media.key.HashID,
-		SortID: curie.IRI(s.resolution.FileSuffix(string(media.key.SortID))),
-	}
-
+func (s Scaler) replica(_ context.Context, media *Media) (*Media, error) {
 	return &Media{
-		key:   key,
+		path:  s.resolution.FileSuffix(media.path),
 		image: media.image,
 	}, nil
 }
 
-func (s Scaler) scaleTo(ctx context.Context, media *Media) (*Media, error) {
+func (s Scaler) scaleTo(_ context.Context, media *Media) (*Media, error) {
 	cropX, cropY := CropToScale(
 		image.Point{
 			X: media.image.Bounds().Dx(),
@@ -76,13 +70,9 @@ func (s Scaler) scaleTo(ctx context.Context, media *Media) (*Media, error) {
 	)
 
 	img := transform.Resize(cropped, s.resolution.Width, s.resolution.Height, transform.Lanczos)
-	key := &medium.Media{
-		HashID: media.key.HashID,
-		SortID: curie.IRI(s.resolution.FileSuffix(string(media.key.SortID))),
-	}
 
 	return &Media{
-		key:   key,
+		path:  s.resolution.FileSuffix(media.path),
 		image: img,
 	}, nil
 }
