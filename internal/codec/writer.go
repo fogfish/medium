@@ -11,41 +11,35 @@ package codec
 import (
 	"context"
 	"image/jpeg"
-	"io"
 	"log/slog"
 )
 
 type Writer struct {
-	putter Putter
+	fsys WriterFS
 }
 
-func NewWriter(putter Putter) *Writer {
+func NewWriter(fsys WriterFS) *Writer {
 	return &Writer{
-		putter: putter,
+		fsys: fsys,
 	}
 }
 
-func (wrt Writer) Put(ctx context.Context, media *Media) error {
+func (wrt Writer) Put(ctx context.Context, media *Media) (err error) {
 	slog.Debug("write media object",
-		slog.String("key", media.key.PathKey()),
+		slog.String("path", media.path),
 		slog.Group("source", "x", media.image.Bounds().Dx(), "y", media.image.Bounds().Dy()),
 	)
 
-	r, w := io.Pipe()
+	path := media.path + ".jpg"
+	fd, err := wrt.fsys.Create(path, &Meta{ContentType: "image/jpg"})
+	if err != nil {
+		return errCodecIO.With(err)
+	}
+	defer func() { err = fd.Close() }()
 
 	// TODO: Make customizable but 93% is optimal
-	go func() {
-		defer w.Close()
-		if err := jpeg.Encode(w, media.image, &jpeg.Options{Quality: 93}); err != nil {
-			slog.Error("failed encode jpeg", "error", err)
-		}
-	}()
-
-	media.key.SortID = media.key.SortID + ".jpg"
-	media.key.ContentType = "image/jpg"
-
-	if err := wrt.putter.Put(ctx, media.key, r); err != nil {
-		return errCodecIO.New(err)
+	if err := jpeg.Encode(fd, media.image, &jpeg.Options{Quality: 93}); err != nil {
+		slog.Error("failed encode jpeg", "error", err)
 	}
 
 	return nil

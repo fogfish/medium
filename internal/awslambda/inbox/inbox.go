@@ -14,37 +14,35 @@ import (
 	"os"
 	"time"
 
+	"github.com/aws/aws-lambda-go/events"
 	_ "github.com/fogfish/logger/v3"
 	"github.com/fogfish/medium"
 	"github.com/fogfish/medium/internal/codec"
-	"github.com/fogfish/stream/service/s3"
+	"github.com/fogfish/stream"
 	"github.com/fogfish/swarm"
 	"github.com/fogfish/swarm/broker/events3"
 )
 
 func Runner() {
-	q, err := events3.New(
-		os.Getenv("CONFIG_STORE_INBOX"),
-		swarm.WithLogStdErr(),
-		swarm.WithTimeToFlight(60*time.Second),
-		swarm.WithConfigFromEnv(),
+	q, err := events3.NewDequeuer(
+		events3.WithConfig(
+			swarm.WithLogStdErr(),
+			swarm.WithTimeToFlight(60*time.Second),
+			swarm.WithConfigFromEnv(),
+		),
 	)
 	if err != nil {
 		slog.Error("Failed to init events3 broker")
 		panic(err)
 	}
 
-	inbox, err := s3.New[*medium.Media](
-		s3.WithBucket(os.Getenv("CONFIG_STORE_INBOX")),
-	)
+	inbox, err := stream.NewFS(os.Getenv("CONFIG_STORE_INBOX"))
 	if err != nil {
 		slog.Error("Failed to init inbox s3 client")
 		panic(err)
 	}
 
-	media, err := s3.New[*medium.Media](
-		s3.WithBucket(os.Getenv("CONFIG_STORE_MEDIA")),
-	)
+	media, err := stream.New[codec.Meta](os.Getenv("CONFIG_STORE_MEDIA"))
 	if err != nil {
 		slog.Error("Failed to init media s3 client")
 		panic(err)
@@ -60,27 +58,28 @@ func Runner() {
 		codec: codec.NewCodec(profile, inbox, media),
 	}
 
-	go bus.onEventS3(events3.Dequeue(q))
+	go bus.onEventS3(events3.Source(q))
 
 	q.Await()
 }
 
 type bus struct {
 	codec interface {
-		Process(context.Context, *events3.Event) error
+		Process(context.Context, swarm.Msg[*events.S3EventRecord]) error
 	}
 }
 
-func (bus *bus) onEventS3(rcv <-chan *events3.Event, ack chan<- *events3.Event) {
+func (bus *bus) onEventS3(rcv <-chan swarm.Msg[*events.S3EventRecord], ack chan<- swarm.Msg[*events.S3EventRecord]) {
 	for evt := range rcv {
-		evt.Digest.Error = bus.codec.Process(context.Background(), evt)
-
-		if evt.Digest.Error != nil {
+		err := bus.codec.Process(context.Background(), evt)
+		if err != nil {
 			slog.Error("failed to process s3 event",
 				slog.String("bucket", evt.Object.S3.Bucket.Name),
 				slog.String("key", evt.Object.S3.Object.Key),
-				"error", evt.Digest.Error,
+				"error", err,
 			)
+			ack <- evt.Fail(err)
+			continue
 		}
 
 		ack <- evt

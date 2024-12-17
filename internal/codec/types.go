@@ -9,23 +9,30 @@
 package codec
 
 import (
-	"context"
 	"image"
-	"io"
+	"io/fs"
 
 	"github.com/fogfish/faults"
-	"github.com/fogfish/medium"
+	"github.com/fogfish/stream"
 )
 
-// Abstract media file reader, provide interface implementation.
-type Getter interface {
-	Get(context.Context, *medium.Media, ...interface{ GetterOpt(*medium.Media) }) (*medium.Media, io.ReadCloser, error)
+// Abstract media file reader.
+type ReaderFS = fs.FS
+
+// interface {
+// 	Get(context.Context, *medium.Media, ...interface{ GetterOpt(*medium.Media) }) (*medium.Media, io.ReadCloser, error)
+// }
+
+type Meta struct {
+	ContentType string
 }
 
-// Abstract media file writer, provide interface implementation.
-type Putter interface {
-	Put(context.Context, *medium.Media, io.Reader, ...interface{ WriterOpt(*medium.Media) }) error
-}
+// Abstract media file writer.
+type WriterFS = stream.CreateFS[Meta]
+
+// interface {
+// 	Put(context.Context, *medium.Media, io.Reader, ...interface{ WriterOpt(*medium.Media) }) error
+// }
 
 const (
 	errCodecIO           = faults.Type("codec I/O error")
@@ -39,7 +46,7 @@ const (
 
 // Container for digital media
 type Media struct {
-	key   *medium.Media
+	path  string
 	image image.Image
 }
 

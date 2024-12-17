@@ -17,50 +17,45 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/fogfish/gurl/v2/http"
 	ƒ "github.com/fogfish/gurl/v2/http/recv"
 	ø "github.com/fogfish/gurl/v2/http/send"
-	"github.com/fogfish/medium"
-	"github.com/fogfish/swarm/broker/events3"
+	"github.com/fogfish/swarm"
 )
 
 type Reader struct {
 	http.Stack
-	getter Getter
+	fsys ReaderFS
 }
 
-func NewReader(stack http.Stack, getter Getter) *Reader {
+func NewReader(stack http.Stack, fsys ReaderFS) *Reader {
 	return &Reader{
-		Stack:  stack,
-		getter: getter,
+		Stack: stack,
+		fsys:  fsys,
 	}
 }
 
-func (r Reader) Get(ctx context.Context, evt *events3.Event) (*Media, error) {
+func (r Reader) Get(ctx context.Context, evt swarm.Msg[*events.S3EventRecord]) (*Media, error) {
 	format, supported := r.isSupported(evt.Object.S3.Object.Key)
 	if !supported {
-		return nil, errCodecNotSupported.New(nil, format)
-	}
-
-	key, err := medium.NewMediaFromPath(evt.Object.S3.Object.Key)
-	if err != nil {
-		return nil, errCodecIO.New(err)
+		return nil, errCodecNotSupported.With(nil, format)
 	}
 
 	slog.Debug("getting media object",
 		slog.String("bucket", evt.Object.S3.Bucket.Name),
 		slog.String("key", evt.Object.S3.Object.Key),
-		"media", key,
 	)
 
+	path := filepath.Join("/", evt.Object.S3.Object.Key)
 	switch format {
 	case MEDIA_JPEG:
-		return r.fetchMediaJpeg(ctx, key)
+		return r.fetchMediaJpeg(ctx, path)
 	case MEDIA_LINK:
-		return r.fetchMediaLink(ctx, key)
+		return r.fetchMediaLink(ctx, path)
 	}
 
-	return nil, errCodecNotSupported.New(nil, format)
+	return nil, errCodecNotSupported.With(nil, format)
 }
 
 func (r Reader) isSupported(path string) (string, bool) {
@@ -75,41 +70,43 @@ func (r Reader) isSupported(path string) (string, bool) {
 	}
 }
 
-func (r Reader) fetchMediaJpeg(ctx context.Context, key *medium.Media) (*Media, error) {
-	_, stream, err := r.getter.Get(ctx, key)
+func (r Reader) fetchMediaJpeg(_ context.Context, path string) (*Media, error) {
+	fd, err := r.fsys.Open(path)
 	if err != nil {
-		return nil, errCodecIO.New(err)
+		return nil, errCodecIO.With(err)
 	}
+	defer fd.Close()
 
-	img, _, err := image.Decode(stream)
+	img, _, err := image.Decode(fd)
 	if err != nil {
-		return nil, errCodecIO.New(err)
+		return nil, errCodecIO.With(err)
 	}
 
 	return &Media{
-		key:   key,
+		path:  path,
 		image: img,
 	}, nil
 }
 
-func (r Reader) fetchMediaLink(ctx context.Context, key *medium.Media) (*Media, error) {
-	_, stream, err := r.getter.Get(ctx, key)
+func (r Reader) fetchMediaLink(ctx context.Context, path string) (*Media, error) {
+	fd, err := r.fsys.Open(path)
 	if err != nil {
-		return nil, errCodecIO.New(err)
+		return nil, errCodecIO.With(err)
 	}
+	defer fd.Close()
 
 	var link Link
-	if err := json.NewDecoder(stream).Decode(&link); err != nil {
+	if err := json.NewDecoder(fd).Decode(&link); err != nil {
 		return nil, err
 	}
 
 	img, err := r.fetchMediaFile(ctx, link.Url)
 	if err != nil {
-		return nil, errCodecIO.New(err)
+		return nil, errCodecIO.With(err)
 	}
 
 	return &Media{
-		key:   key,
+		path:  path,
 		image: *img,
 	}, nil
 }
