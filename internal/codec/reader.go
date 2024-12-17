@@ -39,7 +39,7 @@ func NewReader(stack http.Stack, fsys ReaderFS) *Reader {
 func (r Reader) Get(ctx context.Context, evt swarm.Msg[*events.S3EventRecord]) (*Media, error) {
 	format, supported := r.isSupported(evt.Object.S3.Object.Key)
 	if !supported {
-		return nil, errCodecNotSupported.New(nil, format)
+		return nil, errCodecNotSupported.With(nil, format)
 	}
 
 	slog.Debug("getting media object",
@@ -55,7 +55,7 @@ func (r Reader) Get(ctx context.Context, evt swarm.Msg[*events.S3EventRecord]) (
 		return r.fetchMediaLink(ctx, path)
 	}
 
-	return nil, errCodecNotSupported.New(nil, format)
+	return nil, errCodecNotSupported.With(nil, format)
 }
 
 func (r Reader) isSupported(path string) (string, bool) {
@@ -73,13 +73,13 @@ func (r Reader) isSupported(path string) (string, bool) {
 func (r Reader) fetchMediaJpeg(_ context.Context, path string) (*Media, error) {
 	fd, err := r.fsys.Open(path)
 	if err != nil {
-		return nil, errCodecIO.New(err)
+		return nil, errCodecIO.With(err)
 	}
 	defer fd.Close()
 
 	img, _, err := image.Decode(fd)
 	if err != nil {
-		return nil, errCodecIO.New(err)
+		return nil, errCodecIO.With(err)
 	}
 
 	return &Media{
@@ -91,7 +91,7 @@ func (r Reader) fetchMediaJpeg(_ context.Context, path string) (*Media, error) {
 func (r Reader) fetchMediaLink(ctx context.Context, path string) (*Media, error) {
 	fd, err := r.fsys.Open(path)
 	if err != nil {
-		return nil, errCodecIO.New(err)
+		return nil, errCodecIO.With(err)
 	}
 	defer fd.Close()
 
@@ -102,7 +102,7 @@ func (r Reader) fetchMediaLink(ctx context.Context, path string) (*Media, error)
 
 	img, err := r.fetchMediaFile(ctx, link.Url)
 	if err != nil {
-		return nil, errCodecIO.New(err)
+		return nil, errCodecIO.With(err)
 	}
 
 	return &Media{

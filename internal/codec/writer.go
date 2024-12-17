@@ -33,7 +33,7 @@ func (wrt Writer) Put(ctx context.Context, media *Media) (err error) {
 	path := media.path + ".jpg"
 	fd, err := wrt.fsys.Create(path, &Meta{ContentType: "image/jpg"})
 	if err != nil {
-		return errCodecIO.New(err)
+		return errCodecIO.With(err)
 	}
 	defer func() { err = fd.Close() }()
 

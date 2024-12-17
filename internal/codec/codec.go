@@ -49,7 +49,7 @@ func NewCodec(profile medium.Profile, rfs ReaderFS, wfs WriterFS) *Codec {
 func (codec *Codec) Process(ctx context.Context, evt swarm.Msg[*events.S3EventRecord]) error {
 	media, err := codec.reader.Get(ctx, evt)
 	if err != nil {
-		return errCodecIO.New(err)
+		return errCodecIO.With(err)
 	}
 
 	var g errgroup.Group
@@ -68,7 +68,7 @@ func (codec *Codec) Process(ctx context.Context, evt swarm.Msg[*events.S3EventRe
 	}
 
 	if err := g.Wait(); err != nil {
-		return errCodecIO.New(err)
+		return errCodecIO.With(err)
 	}
 
 	return nil
