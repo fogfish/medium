@@ -10,6 +10,8 @@ package codec
 
 import (
 	"context"
+	"os"
+	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/fogfish/gurl/v2/http"
@@ -18,13 +20,18 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type Codec struct {
-	reader *Reader
-	scaler []*Scaler
-	writer *Writer
+type Emitter interface {
+	Enq(context.Context, Event, ...string) error
 }
 
-func NewCodec(profile medium.Profile, rfs ReaderFS, wfs WriterFS) *Codec {
+type Codec struct {
+	reader  *Reader
+	scaler  []*Scaler
+	writer  *Writer
+	emitter Emitter
+}
+
+func NewCodec(profile medium.Profile, rfs ReaderFS, wfs WriterFS, emitter Emitter) *Codec {
 	// defines HTTP client to download media objects
 	client := http.Client()
 	client.CheckRedirect = nil
@@ -40,9 +47,10 @@ func NewCodec(profile medium.Profile, rfs ReaderFS, wfs WriterFS) *Codec {
 	writer := NewWriter(wfs)
 
 	return &Codec{
-		reader: reader,
-		scaler: scaler,
-		writer: writer,
+		reader:  reader,
+		scaler:  scaler,
+		writer:  writer,
+		emitter: emitter,
 	}
 }
 
@@ -71,5 +79,25 @@ func (codec *Codec) Process(ctx context.Context, evt swarm.Msg[*events.S3EventRe
 		return errCodecIO.With(err)
 	}
 
+	codec.sink(ctx, evt)
+
 	return nil
+}
+
+func (codec *Codec) sink(ctx context.Context, evt swarm.Msg[*events.S3EventRecord]) {
+	if codec.emitter == nil {
+		return
+	}
+
+	event := Event{S3EventRecord: *evt.Object}
+
+	event.S3.Bucket.Name = os.Getenv("CONFIG_STORE_MEDIA")
+	event.S3.Bucket.Arn = strings.ReplaceAll(event.S3.Bucket.Arn, os.Getenv("CONFIG_STORE_INBOX"), os.Getenv("CONFIG_STORE_MEDIA"))
+
+	event.Variants = make([]string, len(codec.scaler))
+	for i, scaler := range codec.scaler {
+		event.Variants[i] = scaler.resolution.String()
+	}
+
+	codec.emitter.Enq(ctx, event)
 }

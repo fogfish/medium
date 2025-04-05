@@ -12,6 +12,7 @@ import (
 	"image"
 	"io/fs"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/fogfish/faults"
 	"github.com/fogfish/stream"
 )
@@ -19,20 +20,18 @@ import (
 // Abstract media file reader.
 type ReaderFS = fs.FS
 
-// interface {
-// 	Get(context.Context, *medium.Media, ...interface{ GetterOpt(*medium.Media) }) (*medium.Media, io.ReadCloser, error)
-// }
+// Abstract media file writer.
+type WriterFS = stream.CreateFS[Meta]
 
 type Meta struct {
 	ContentType string
 }
 
-// Abstract media file writer.
-type WriterFS = stream.CreateFS[Meta]
-
-// interface {
-// 	Put(context.Context, *medium.Media, io.Reader, ...interface{ WriterOpt(*medium.Media) }) error
-// }
+// Event emitted (TODO: fix naming)
+type Event struct {
+	events.S3EventRecord
+	Variants []string
+}
 
 const (
 	errCodecIO           = faults.Type("codec I/O error")

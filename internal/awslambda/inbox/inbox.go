@@ -20,7 +20,9 @@ import (
 	"github.com/fogfish/medium/internal/codec"
 	"github.com/fogfish/stream"
 	"github.com/fogfish/swarm"
+	"github.com/fogfish/swarm/broker/eventbridge"
 	"github.com/fogfish/swarm/broker/events3"
+	"github.com/fogfish/swarm/enqueue"
 )
 
 func Runner() {
@@ -54,10 +56,25 @@ func Runner() {
 		panic(err)
 	}
 
-	bus := bus{
-		codec: codec.NewCodec(profile, inbox, media),
+	var emitter codec.Emitter
+	eventbus := os.Getenv("CONFIG_SINK_EVENTBUS")
+	if eventbus != "" {
+		bridge, err := eventbridge.NewEnqueuer(eventbus,
+			eventbridge.WithConfig(
+				swarm.WithSource("github.com/fogfish/medium"),
+				swarm.WithLogStdErr(),
+			),
+		)
+		if err != nil {
+			slog.Error("Failed to init eventbridge broker", "bus", eventbus)
+			panic(err)
+		}
+		emitter = enqueue.NewTyped[codec.Event](bridge)
 	}
 
+	codec := codec.NewCodec(profile, inbox, media, emitter)
+
+	bus := bus{codec: codec}
 	go bus.onEventS3(events3.Source(q))
 
 	q.Await()
