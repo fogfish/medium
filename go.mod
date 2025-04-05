@@ -15,8 +15,8 @@ require (
 	github.com/fogfish/scud v0.10.5
 	github.com/fogfish/stream v1.2.2
 	github.com/fogfish/swarm v0.21.0
-	github.com/fogfish/swarm/broker/eventbridge v0.21.0
-	github.com/fogfish/swarm/broker/events3 v0.20.1
+	github.com/fogfish/swarm/broker/eventbridge v0.21.1
+	github.com/fogfish/swarm/broker/events3 v0.21.0
 	golang.org/x/sync v0.13.0
 )
 
