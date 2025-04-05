@@ -9,10 +9,12 @@
 package awsmedium
 
 import (
+	"path/filepath"
 	"strconv"
 
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awscloudfront"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsevents"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambdaeventsources"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
@@ -81,6 +83,11 @@ type StackProps struct {
 	// Default: 1 day
 	//
 	Expiration awscdk.Duration
+
+	// EventBus to emit event upon the completion
+	// Default: None
+	//
+	EventBus awsevents.IEventBus
 }
 
 func (props *StackProps) assert() {
@@ -179,8 +186,18 @@ func (stack *Stack) createMediaBucket(_ *StackProps) {
 
 func (stack *Stack) createInboxCodec(props *StackProps, profile medium.Profile) {
 	path := profile.Path
-	name := stack.resource("inbox-codec-" + path)
+	name := stack.resource("inbox-codec-" + filepath.Base(path))
 	tout := props.Deadline.ToSeconds(&awscdk.TimeConversionOptions{})
+
+	envs := map[string]*string{
+		"CONFIG_STORE_INBOX":          stack.Inbox.BucketName(),
+		"CONFIG_STORE_MEDIA":          stack.Media.BucketName(),
+		"CONFIG_CODEC_PROFILE":        jsii.String(profile.String()),
+		"CONFIG_SWARM_TIME_TO_FLIGHT": jsii.String(strconv.Itoa(int(*tout))),
+	}
+	if props.EventBus != nil {
+		envs["CONFIG_SINK_EVENTBUS"] = props.EventBus.EventBusName()
+	}
 
 	sink := events3.NewSink(stack.Stack, jsii.String("InboxCodec"+path),
 		&events3.SinkProps{
@@ -202,18 +219,16 @@ func (stack *Stack) createInboxCodec(props *StackProps, profile medium.Profile) 
 					DeadLetterQueueEnabled: jsii.Bool(true),
 					DeadLetterQueue:        stack.dlq,
 					MemorySize:             props.MemorySize,
-					Environment: &map[string]*string{
-						"CONFIG_STORE_INBOX":          stack.Inbox.BucketName(),
-						"CONFIG_STORE_MEDIA":          stack.Media.BucketName(),
-						"CONFIG_CODEC_PROFILE":        jsii.String(profile.String()),
-						"CONFIG_SWARM_TIME_TO_FLIGHT": jsii.String(strconv.Itoa(int(*tout))),
-					},
+					Environment:            &envs,
 				},
 			},
 		},
 	)
 	stack.Inbox.GrantRead(sink.Handler, nil)
 	stack.Media.GrantWrite(sink.Handler, nil, nil)
+	if props.EventBus != nil {
+		props.EventBus.GrantPutEventsTo(sink.Handler, nil)
+	}
 }
 
 func (stack *Stack) createCloudFront(props *StackProps) {

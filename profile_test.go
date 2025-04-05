@@ -47,6 +47,35 @@ func TestResolution(t *testing.T) {
 				it.Nil(err),
 			)
 		}
-
 	})
+}
+
+func TestProfile(t *testing.T) {
+	t.Run("WellFormat", func(t *testing.T) {
+		for input, expect := range map[string]medium.Profile{
+			"f|a-1x1":         {Path: "f", Resolutions: []medium.Resolution{{"a", 1, 1}}},
+			"f|a-1x1:b-1x1":   {Path: "f", Resolutions: []medium.Resolution{{"a", 1, 1}, {"b", 1, 1}}},
+			"f|a-1x1:b-1x1|s": {Path: "f", Resolutions: []medium.Resolution{{"a", 1, 1}, {"b", 1, 1}}, Sink: "s"},
+		} {
+			val, err := medium.NewProfile(input)
+			it.Then(t).Should(
+				it.Nil(err),
+				it.Equiv(val, expect),
+			)
+		}
+	})
+
+	t.Run("Corrupted", func(t *testing.T) {
+		for _, input := range []string{
+			"",
+			"f",
+			"f|p-128",
+		} {
+			_, err := medium.NewProfile(input)
+			it.Then(t).ShouldNot(
+				it.Nil(err),
+			)
+		}
+	})
+
 }

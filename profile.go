@@ -18,20 +18,30 @@ import (
 // Media encoding profile, ensemble of resolutions builds the profile
 // (e.g. avatar profile defines small, medium and large encoding of user's avatar)
 type Profile struct {
-	Path        string
-	Resolutions []Resolution
+	Path        string       // S3 path prefix
+	Resolutions []Resolution // array of transformation functions
+	Sink        string       // Event Sink when successfully completed
 }
 
 // Profiles is part of config DSL
 func Profiles(seq ...Profile) []Profile { return seq }
 
-// Parses resolution from string {Path}:{Name}-{Width}x{Height}:{Name}-{Width}x{Height}
+// Parses Profile from string
+// {Path}|{Name}-{Width}x{Height}:{Name}-{Width}x{Height}|{Sink}
 func NewProfile(spec string) (Profile, error) {
-	seq := strings.Split(spec, ":")
+	seq := strings.Split(spec, "|")
+	if len(seq) < 2 {
+		return Profile{}, fmt.Errorf("invalid specification")
+	}
 
-	resolutions := make([]Resolution, len(seq)-1)
+	// Path
+	path := seq[0]
 
-	for i, x := range seq[1:] {
+	// Transformers
+	fseq := strings.Split(seq[1], ":")
+	resolutions := make([]Resolution, len(fseq))
+
+	for i, x := range fseq {
 		r, err := NewResolution(x)
 		if err != nil {
 			return Profile{}, err
@@ -39,19 +49,32 @@ func NewProfile(spec string) (Profile, error) {
 		resolutions[i] = r
 	}
 
+	// Sink
+	sink := ""
+	if len(seq) > 2 {
+		sink = seq[2]
+	}
+
 	return Profile{
-		Path:        seq[0],
+		Path:        path,
 		Resolutions: resolutions,
+		Sink:        sink,
 	}, nil
 }
 
 func (p Profile) String() string {
-	seq := make([]string, len(p.Resolutions))
+	fseq := make([]string, len(p.Resolutions))
 	for i, r := range p.Resolutions {
-		seq[i] = r.String()
+		fseq[i] = r.String()
+	}
+	fmap := strings.Join(fseq, ":")
+
+	bseq := []string{p.Path, fmap}
+	if p.Sink != "" {
+		bseq = append(bseq, p.Sink)
 	}
 
-	return p.Path + ":" + strings.Join(seq, ":")
+	return strings.Join(bseq, "|")
 }
 
 // Media file resolution.
@@ -126,6 +149,7 @@ func (p Profile) Process(seq ...Resolution) Profile {
 	return Profile{
 		Path:        p.Path,
 		Resolutions: seq,
+		Sink:        p.Sink,
 	}
 }
 
@@ -137,4 +161,13 @@ func ScaleTo(label string, w int, h int) Resolution {
 // Replica processing step copies media "almost" as-is
 func Replica(label string) Resolution {
 	return Resolution{Label: label, Width: 0, Height: 0}
+}
+
+// Sink output to event bus
+func (p Profile) SinkTo(sink string) Profile {
+	return Profile{
+		Path:        p.Path,
+		Resolutions: p.Resolutions,
+		Sink:        sink,
+	}
 }
