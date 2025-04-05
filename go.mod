@@ -2,8 +2,6 @@ module github.com/fogfish/medium
 
 go 1.24
 
-toolchain go1.24.1
-
 require (
 	github.com/anthonynsimon/bild v0.14.0
 	github.com/aws/aws-cdk-go/awscdk/v2 v2.188.0
