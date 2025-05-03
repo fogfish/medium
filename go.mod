@@ -17,6 +17,7 @@ require (
 	github.com/fogfish/swarm v0.21.0
 	github.com/fogfish/swarm/broker/eventbridge v0.21.1
 	github.com/fogfish/swarm/broker/events3 v0.21.0
+	github.com/fogfish/tagver v0.2.0
 	golang.org/x/sync v0.13.0
 )
 

@@ -15,11 +15,12 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/jsii-runtime-go"
 	"github.com/fogfish/medium/awsmedium"
+	"github.com/fogfish/tagver"
 )
 
 //
 //	cdk deploy \
-//	  -c vsn=latest \
+//	  -c vsn=medium@pr00 \
 //	  -c config=photo \
 //	  -c site=foobar.example.com \
 //	  -c tls-cert-arn=arn:aws:acm:us-east-1:000000000000:certificate/dad...cafe
@@ -36,31 +37,32 @@ func main() {
 		},
 	}
 
-	stack := "medium"
-	if vsn != "" {
-		stack += "-" + vsn
-	}
-
-	awsmedium.NewStack(app, jsii.String(stack),
-		&awsmedium.StackProps{
+	edge := awsmedium.NewEdge(app, jsii.String("medium-edge"),
+		&awsmedium.EdgeProps{
 			StackProps:        config,
-			Profiles:          awsmedium.Profiles[cfg],
+			Namespace:         "medium",
+			Version:           vsn.Get("medium", "main"),
 			Site:              jsii.String(FromContext(app, "site")),
 			TlsCertificateArn: jsii.String(FromContext(app, "tls-cert-arn")),
-			MemorySize:        jsii.Number(512),
+		},
+	)
+
+	awsmedium.NewCodec(app, jsii.String("medium-codec"),
+		&awsmedium.CodecProps{
+			StackProps: config,
+			Namespace:  "medium",
+			Version:    vsn.Get("medium", "main"),
+			Profiles:   awsmedium.Profiles[cfg],
+			MemorySize: jsii.Number(512),
+			Media:      edge.Media,
 		},
 	)
 
 	app.Synth(nil)
 }
 
-func FromContextVsn(app awscdk.App) string {
-	vsn := FromContext(app, "vsn")
-	if vsn == "" {
-		return "latest"
-	}
-
-	return vsn
+func FromContextVsn(app awscdk.App) tagver.Versions {
+	return tagver.NewVersions(FromContext(app, "vsn"))
 }
 
 func FromContextCfg(app awscdk.App) string {
