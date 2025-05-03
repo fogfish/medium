@@ -13,17 +13,16 @@ import (
 	"strconv"
 
 	"github.com/aws/aws-cdk-go/awscdk/v2"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awscloudfront"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsevents"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambdaeventsources"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awssqs"
 	"github.com/aws/jsii-runtime-go"
-	"github.com/fogfish/go-cdk-easycdn/easycdn"
 	"github.com/fogfish/medium"
 	"github.com/fogfish/scud"
 	"github.com/fogfish/swarm/broker/events3"
+	"github.com/fogfish/tagver"
 
 	// Note: required to import engine so that all deps used it are lifted to client.
 	//       app that uses only stack fails to build if image manipulation library is not imported.
@@ -31,8 +30,14 @@ import (
 	_ "github.com/fogfish/medium/internal/awslambda/inbox"
 )
 
-type StackProps struct {
+type CodecProps struct {
 	*awscdk.StackProps
+
+	// Namespace for cloud resource provisioning
+	Namespace string
+
+	// Version of the deployment
+	Version tagver.Version
 
 	// Configuration profiles (mandatory).
 	// Each profile defines:
@@ -50,14 +55,6 @@ type StackProps struct {
 	//  )
 	//
 	Profiles []medium.Profile
-
-	// Fully Qualified Domain Name where CDN is hosted (mandatory).
-	//
-	Site *string
-
-	// ARN of TLS Certificated to enable HTTPS on CDN
-	//
-	TlsCertificateArn *string
 
 	// The amount of memory, in MB, that is allocated to your Lambda function.
 	//
@@ -88,15 +85,14 @@ type StackProps struct {
 	// Default: None
 	//
 	EventBus awsevents.IEventBus
+
+	// AWS S3 bucket to write media files
+	Media awss3.IBucket
 }
 
-func (props *StackProps) assert() {
+func (props *CodecProps) assert() {
 	if len(props.Profiles) == 0 {
 		panic("\n\nMedia processing profiles are not defined.")
-	}
-
-	if props.Site == nil || *props.Site == "" {
-		panic("\n\nFully Qualified Domain Name for CDN is not defined.")
 	}
 
 	if props.Deadline == nil {
@@ -112,42 +108,38 @@ func (props *StackProps) assert() {
 	}
 }
 
-type Stack struct {
+type Codec struct {
 	awscdk.Stack
-	namespace    string
-	dlq          awssqs.Queue
-	Distribution awscloudfront.Distribution
-	Inbox        awss3.Bucket
-	Media        awss3.Bucket
+	namespace string
+	version   tagver.Version
+
+	dlq   awssqs.Queue
+	Inbox awss3.Bucket
 }
 
-func NewStack(app awscdk.App, id *string, props *StackProps) *Stack {
+func NewCodec(app awscdk.App, id *string, props *CodecProps) *Codec {
 	props.assert()
 
-	stack := &Stack{
+	stack := &Codec{
 		Stack:     awscdk.NewStack(app, id, props.StackProps),
-		namespace: *id,
+		namespace: props.Namespace,
+		version:   props.Version,
 	}
 
 	stack.createDLQ(props)
-
 	stack.createInboxBucket(props)
-	stack.createMediaBucket(props)
-
 	for _, profile := range props.Profiles {
 		stack.createInboxCodec(props, profile)
 	}
 
-	stack.createCloudFront(props)
-
 	return stack
 }
 
-func (stack *Stack) resource(id string) string {
-	return stack.namespace + "-" + id
+func (stack *Codec) resource(id string) string {
+	return stack.version.Tag(stack.namespace + "-" + id)
 }
 
-func (stack *Stack) createDLQ(props *StackProps) {
+func (stack *Codec) createDLQ(props *CodecProps) {
 	name := stack.resource("dlq")
 
 	stack.dlq = awssqs.NewQueue(stack.Stack, jsii.String("DeadLetterQueue"),
@@ -158,12 +150,18 @@ func (stack *Stack) createDLQ(props *StackProps) {
 	)
 }
 
-func (stack *Stack) createInboxBucket(props *StackProps) {
+func (stack *Codec) createInboxBucket(props *CodecProps) {
 	name := stack.resource("inbox")
+
+	policy := awscdk.RemovalPolicy_RETAIN
+	if tagver.IsTest(props.Version) {
+		policy = awscdk.RemovalPolicy_DESTROY
+	}
 
 	stack.Inbox = awss3.NewBucket(stack.Stack, jsii.String("Inbox"),
 		&awss3.BucketProps{
-			BucketName: jsii.String(name),
+			BucketName:    jsii.String(name),
+			RemovalPolicy: policy,
 		},
 	)
 
@@ -174,24 +172,14 @@ func (stack *Stack) createInboxBucket(props *StackProps) {
 	})
 }
 
-func (stack *Stack) createMediaBucket(_ *StackProps) {
-	name := stack.resource("media")
-
-	stack.Media = awss3.NewBucket(stack.Stack, jsii.String("Media"),
-		&awss3.BucketProps{
-			BucketName: jsii.String(name),
-		},
-	)
-}
-
-func (stack *Stack) createInboxCodec(props *StackProps, profile medium.Profile) {
+func (stack *Codec) createInboxCodec(props *CodecProps, profile medium.Profile) {
 	path := profile.Path
 	name := stack.resource("inbox-codec-" + filepath.Base(path))
 	tout := props.Deadline.ToSeconds(&awscdk.TimeConversionOptions{})
 
 	envs := map[string]*string{
 		"CONFIG_STORE_INBOX":          stack.Inbox.BucketName(),
-		"CONFIG_STORE_MEDIA":          stack.Media.BucketName(),
+		"CONFIG_STORE_MEDIA":          props.Media.BucketName(),
 		"CONFIG_CODEC_PROFILE":        jsii.String(profile.String()),
 		"CONFIG_SWARM_TIME_TO_FLIGHT": jsii.String(strconv.Itoa(int(*tout))),
 	}
@@ -225,19 +213,8 @@ func (stack *Stack) createInboxCodec(props *StackProps, profile medium.Profile) 
 		},
 	)
 	stack.Inbox.GrantRead(sink.Handler, nil)
-	stack.Media.GrantWrite(sink.Handler, nil, nil)
+	props.Media.GrantWrite(sink.Handler, nil, nil)
 	if props.EventBus != nil {
 		props.EventBus.GrantPutEventsTo(sink.Handler, nil)
 	}
-}
-
-func (stack *Stack) createCloudFront(props *StackProps) {
-	stack.Distribution = easycdn.NewCdn(stack.Stack, jsii.String("CloudFront"),
-		&easycdn.CdnProps{
-			Bucket:            stack.Media,
-			Site:              props.Site,
-			HttpVersion:       awscloudfront.HttpVersion_HTTP2_AND_3,
-			TlsCertificateArn: props.TlsCertificateArn,
-		},
-	).Distribution()
 }

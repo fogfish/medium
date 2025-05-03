@@ -96,10 +96,11 @@ The construct is deployable as standalone AWS CDK app. It is required to supply 
 
 ```bash
 cdk deploy \
-  -c vsn=latest \
+  -c vsn=medium@main \
   -c config=photo \
   -c site=foobar.example.com \
-  -c tls-cert-arn=arn:aws:acm:us-east-1:000000000000:certificate/dad...cafe
+  -c tls-cert-arn=arn:aws:acm:us-east-1:000000000000:certificate/dad...cafe \
+  --all
 ```
 
 On the completion, it creates entire infrastructure as defined by the diagram above. It uses S3 bucket `medium-{vsn}-inbox` as input and CDN `https://{site}` as output.
@@ -128,8 +129,12 @@ import (
 	"github.com/fogfish/medium/awsmedium"
 )
 
-awsmedium.NewStack(app, jsii.String("you-stack-name"),
-  &awsmedium.StackProps{
+// Creates distribution layer
+awsmedium.NewEdge(/* ... */)
+
+// Creates codec layer
+awsmedium.NewCodec(app, jsii.String("you-stack-name"),
+  &awsmedium.CodecProps{
     StackProps:        config,
     Version:           vsn,
     Profiles:          medium.On("photo").Process(
