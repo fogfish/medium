@@ -11,6 +11,7 @@ package awsmedium
 import (
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsevents"
@@ -173,8 +174,12 @@ func (stack *Codec) createInboxBucket(props *CodecProps) {
 }
 
 func (stack *Codec) createInboxCodec(props *CodecProps, profile medium.Profile) {
-	path := profile.Path
-	name := stack.resource("inbox-codec-" + filepath.Base(path))
+	sfx := filepath.Base(profile.Path)
+	if profile.Ext != "" {
+		sfx = strings.Trim(profile.Ext, filepath.Ext(profile.Ext))
+	}
+
+	name := stack.resource("inbox-codec-" + sfx)
 	tout := props.Deadline.ToSeconds(&awscdk.TimeConversionOptions{})
 
 	envs := map[string]*string{
@@ -187,16 +192,25 @@ func (stack *Codec) createInboxCodec(props *CodecProps, profile medium.Profile) 
 		envs["CONFIG_SINK_EVENTBUS"] = props.EventBus.EventBusName()
 	}
 
-	sink := events3.NewSink(stack.Stack, jsii.String("InboxCodec"+path),
+	var filter *awss3.NotificationKeyFilter
+	if profile.Ext != "" {
+		filter = &awss3.NotificationKeyFilter{
+			Suffix: jsii.String(profile.Ext),
+		}
+	} else {
+		filter = &awss3.NotificationKeyFilter{
+			Prefix: jsii.String(profile.Path),
+		}
+	}
+
+	sink := events3.NewSink(stack.Stack, jsii.String("InboxCodec"+sfx),
 		&events3.SinkProps{
 			Bucket: stack.Inbox,
 			EventSource: &awslambdaeventsources.S3EventSourceProps{
 				Events: &[]awss3.EventType{
 					awss3.EventType_OBJECT_CREATED,
 				},
-				Filters: &[]*awss3.NotificationKeyFilter{
-					{Prefix: jsii.String(path)},
-				},
+				Filters: &[]*awss3.NotificationKeyFilter{filter},
 			},
 			Function: &scud.FunctionGoProps{
 				SourceCodeModule: "github.com/fogfish/medium",

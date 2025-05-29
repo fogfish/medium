@@ -17,6 +17,8 @@ import (
 //
 
 var (
+	//
+	// Content centric profile, content is bucketed by type
 	ProfilePhoto = medium.Profiles(
 		//
 		// Avatar
@@ -46,7 +48,39 @@ var (
 			),
 	)
 
+	//
+	// Creator centric profile
+	ProfileAuthor = medium.Profiles(
+		//
+		// Avatar
+		medium.Of("av.jpg").
+			Process(
+				medium.ScaleTo("small", 128, 128),
+				medium.ScaleTo("avatar", 400, 400),
+				medium.Replica("origin"),
+			),
+		//
+		// Wallpaper
+		medium.Of("wp.jpg").
+			Process(
+				medium.ScaleTo("equal", 1080, 1080),
+				medium.Replica("origin"),
+			),
+		//
+		// Digital Photo
+		medium.Of("dp.jpg").
+			Process(
+				medium.ScaleTo("small", 128, 128),
+				medium.ScaleTo("thumb", 240, 240),
+				medium.ScaleTo("cover", 480, 720),
+				medium.ScaleTo("equal", 1080, 1080),
+				medium.ScaleTo("large", 1080, 1920),
+				medium.Replica("origin"),
+			),
+	)
+
 	Profiles = map[string][]medium.Profile{
-		"photo": ProfilePhoto,
+		"photo":  ProfilePhoto,
+		"author": ProfileAuthor,
 	}
 )
