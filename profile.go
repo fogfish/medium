@@ -19,6 +19,7 @@ import (
 // (e.g. avatar profile defines small, medium and large encoding of user's avatar)
 type Profile struct {
 	Path        string       // S3 path prefix
+	Ext         string       // S3 file extension
 	Resolutions []Resolution // array of transformation functions
 	Sink        string       // Event Sink when successfully completed
 }
@@ -27,15 +28,24 @@ type Profile struct {
 func Profiles(seq ...Profile) []Profile { return seq }
 
 // Parses Profile from string
-// {Path}|{Name}-{Width}x{Height}:{Name}-{Width}x{Height}|{Sink}
+// {Path}.{Ext}|{Name}-{Width}x{Height}:{Name}-{Width}x{Height}|{Sink}
 func NewProfile(spec string) (Profile, error) {
 	seq := strings.Split(spec, "|")
 	if len(seq) < 2 {
 		return Profile{}, fmt.Errorf("invalid specification")
 	}
 
+	if len(seq[0]) == 0 {
+		return Profile{}, fmt.Errorf("invalid specification")
+	}
+
 	// Path
-	path := seq[0]
+	var path, ext string
+	if seq[0][0] == '.' {
+		ext = seq[0][1:]
+	} else {
+		path = seq[0]
+	}
 
 	// Transformers
 	fseq := strings.Split(seq[1], ":")
@@ -57,6 +67,7 @@ func NewProfile(spec string) (Profile, error) {
 
 	return Profile{
 		Path:        path,
+		Ext:         ext,
 		Resolutions: resolutions,
 		Sink:        sink,
 	}, nil
@@ -69,7 +80,14 @@ func (p Profile) String() string {
 	}
 	fmap := strings.Join(fseq, ":")
 
-	bseq := []string{p.Path, fmap}
+	var bseq []string
+	if p.Ext != "" {
+		bseq = append(bseq, "."+p.Ext)
+	} else {
+		bseq = append(bseq, p.Path)
+	}
+	bseq = append(bseq, fmap)
+
 	if p.Sink != "" {
 		bseq = append(bseq, p.Sink)
 	}
@@ -144,10 +162,18 @@ func On(path string) Profile {
 	return Profile{Path: path, Resolutions: []Resolution{}}
 }
 
+// `Of` defines a key suffix at S3 bucket.
+//
+//	It triggers processing pipeline when object is uploaded into inbox.
+func Of(ext string) Profile {
+	return Profile{Ext: ext, Resolutions: []Resolution{}}
+}
+
 // `Process` defines operation to be executed for media file.
 func (p Profile) Process(seq ...Resolution) Profile {
 	return Profile{
 		Path:        p.Path,
+		Ext:         p.Ext,
 		Resolutions: seq,
 		Sink:        p.Sink,
 	}
@@ -167,6 +193,7 @@ func Replica(label string) Resolution {
 func (p Profile) SinkTo(sink string) Profile {
 	return Profile{
 		Path:        p.Path,
+		Ext:         p.Ext,
 		Resolutions: p.Resolutions,
 		Sink:        sink,
 	}

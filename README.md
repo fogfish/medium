@@ -74,7 +74,7 @@ Before Getting started, you have to ensure
 The construct is shipped with few [build-in config profiles](./awsmedium/config.go). You can either customize it or declare own profile. The config is built using simple DLS that defines actions to-do when anyone uploads photo to inbox s3 bucket. 
 
 ```go
-// `On` defines a key prefix at S3 bucket.
+// `On` defines a key prefix at S3 bucket, use `Of` to react on suffix.
 // It triggers processing pipeline when object is uploaded into inbox.
 //
 // `Process` defines operation to be executed for media file.
@@ -108,7 +108,7 @@ On the completion, it creates entire infrastructure as defined by the diagram ab
 Upload media file to `s3://medium-{vsn}-inbox` the root folder is name of the profile (e.g. `photo`). It might contain any arbitrary path.
 
 ```bash
-aws s3 cp my-media.jpg s3://medium-{vsn}-inbox/photo/a/b/c/my-media.jpg
+aws s3 cp my-media.jpg s3://medium-{vsn}-inbox/photo/a/b/c/my-media-photo.jpg
 ```
 
 Processed object are accessible at CDN in few seconds. The processing preserves the absolute path but extension is inflated with resolution.
