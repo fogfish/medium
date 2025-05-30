@@ -174,9 +174,9 @@ func (stack *Codec) createInboxBucket(props *CodecProps) {
 }
 
 func (stack *Codec) createInboxCodec(props *CodecProps, profile medium.Profile) {
-	sfx := filepath.Base(profile.Path)
-	if profile.Ext != "" {
-		sfx = strings.Trim(profile.Ext, filepath.Ext(profile.Ext))
+	sfx := filepath.Base(profile.Prefix)
+	if profile.Suffix != "" {
+		sfx = sfx + strings.Trim(profile.Suffix, filepath.Ext(profile.Suffix))
 	}
 
 	name := stack.resource("inbox-codec-" + sfx)
@@ -192,15 +192,12 @@ func (stack *Codec) createInboxCodec(props *CodecProps, profile medium.Profile) 
 		envs["CONFIG_SINK_EVENTBUS"] = props.EventBus.EventBusName()
 	}
 
-	var filter *awss3.NotificationKeyFilter
-	if profile.Ext != "" {
-		filter = &awss3.NotificationKeyFilter{
-			Suffix: jsii.String(profile.Ext),
-		}
-	} else {
-		filter = &awss3.NotificationKeyFilter{
-			Prefix: jsii.String(profile.Path),
-		}
+	var filter awss3.NotificationKeyFilter
+	if profile.Suffix != "" {
+		filter.Prefix = jsii.String(profile.Prefix)
+	}
+	if profile.Suffix != "" {
+		filter.Suffix = jsii.String(profile.Suffix)
 	}
 
 	sink := events3.NewSink(stack.Stack, jsii.String("InboxCodec"+sfx),
@@ -210,7 +207,7 @@ func (stack *Codec) createInboxCodec(props *CodecProps, profile medium.Profile) 
 				Events: &[]awss3.EventType{
 					awss3.EventType_OBJECT_CREATED,
 				},
-				Filters: &[]*awss3.NotificationKeyFilter{filter},
+				Filters: &[]*awss3.NotificationKeyFilter{&filter},
 			},
 			Function: &scud.FunctionGoProps{
 				SourceCodeModule: "github.com/fogfish/medium",

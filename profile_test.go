@@ -53,12 +53,12 @@ func TestResolution(t *testing.T) {
 func TestProfile(t *testing.T) {
 	t.Run("WellFormat", func(t *testing.T) {
 		for input, expect := range map[string]medium.Profile{
-			"f|a-1x1":          {Path: "f", Resolutions: []medium.Resolution{{"a", 1, 1}}},
-			"f|a-1x1:b-1x1":    {Path: "f", Resolutions: []medium.Resolution{{"a", 1, 1}, {"b", 1, 1}}},
-			"f|a-1x1:b-1x1|s":  {Path: "f", Resolutions: []medium.Resolution{{"a", 1, 1}, {"b", 1, 1}}, Sink: "s"},
-			".f|a-1x1":         {Ext: "f", Resolutions: []medium.Resolution{{"a", 1, 1}}},
-			".f|a-1x1:b-1x1":   {Ext: "f", Resolutions: []medium.Resolution{{"a", 1, 1}, {"b", 1, 1}}},
-			".f|a-1x1:b-1x1|s": {Ext: "f", Resolutions: []medium.Resolution{{"a", 1, 1}, {"b", 1, 1}}, Sink: "s"},
+			"f|a-1x1":           {Prefix: "f", Resolutions: []medium.Resolution{{"a", 1, 1}}},
+			"f|a-1x1:b-1x1":     {Prefix: "f", Resolutions: []medium.Resolution{{"a", 1, 1}, {"b", 1, 1}}},
+			"f|a-1x1:b-1x1|s":   {Prefix: "f", Resolutions: []medium.Resolution{{"a", 1, 1}, {"b", 1, 1}}, Sink: "s"},
+			"f@p|a-1x1":         {Prefix: "f", Suffix: "p", Resolutions: []medium.Resolution{{"a", 1, 1}}},
+			"f@p|a-1x1:b-1x1":   {Prefix: "f", Suffix: "p", Resolutions: []medium.Resolution{{"a", 1, 1}, {"b", 1, 1}}},
+			"f@p|a-1x1:b-1x1|s": {Prefix: "f", Suffix: "p", Resolutions: []medium.Resolution{{"a", 1, 1}, {"b", 1, 1}}, Sink: "s"},
 		} {
 			val, err := medium.NewProfile(input)
 			it.Then(t).Should(

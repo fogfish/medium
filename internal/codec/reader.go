@@ -12,7 +12,10 @@ import (
 	"context"
 	"encoding/json"
 	"image"
+	_ "image/gif"
 	_ "image/jpeg"
+	_ "image/png"
+
 	"log/slog"
 	"path/filepath"
 	"strings"

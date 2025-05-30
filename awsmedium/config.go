@@ -22,7 +22,7 @@ var (
 	ProfilePhoto = medium.Profiles(
 		//
 		// Avatar
-		medium.On("av").
+		medium.On("av", "").
 			Process(
 				medium.ScaleTo("small", 128, 128),
 				medium.ScaleTo("avatar", 400, 400),
@@ -30,14 +30,14 @@ var (
 			),
 		//
 		// Wallpaper
-		medium.On("wp").
+		medium.On("wp", "").
 			Process(
 				medium.ScaleTo("equal", 1080, 1080),
 				medium.Replica("origin"),
 			),
 		//
 		// Digital Photo
-		medium.On("dp").
+		medium.On("dp", "").
 			Process(
 				medium.ScaleTo("small", 128, 128),
 				medium.ScaleTo("thumb", 240, 240),
@@ -53,7 +53,7 @@ var (
 	ProfileAuthor = medium.Profiles(
 		//
 		// Avatar
-		medium.Of("av.jpg").
+		medium.On("", "av.jpg").
 			Process(
 				medium.ScaleTo("small", 128, 128),
 				medium.ScaleTo("avatar", 400, 400),
@@ -61,14 +61,14 @@ var (
 			),
 		//
 		// Wallpaper
-		medium.Of("wp.jpg").
+		medium.On("", "wp.jpg").
 			Process(
 				medium.ScaleTo("equal", 1080, 1080),
 				medium.Replica("origin"),
 			),
 		//
 		// Digital Photo
-		medium.Of("dp.jpg").
+		medium.On("", "dp.jpg").
 			Process(
 				medium.ScaleTo("small", 128, 128),
 				medium.ScaleTo("thumb", 240, 240),
