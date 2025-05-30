@@ -18,8 +18,8 @@ import (
 // Media encoding profile, ensemble of resolutions builds the profile
 // (e.g. avatar profile defines small, medium and large encoding of user's avatar)
 type Profile struct {
-	Path        string       // S3 path prefix
-	Ext         string       // S3 file extension
+	Prefix      string       // S3 path prefix
+	Suffix      string       // S3 file extension
 	Resolutions []Resolution // array of transformation functions
 	Sink        string       // Event Sink when successfully completed
 }
@@ -40,11 +40,11 @@ func NewProfile(spec string) (Profile, error) {
 	}
 
 	// Path
-	var path, ext string
-	if seq[0][0] == '.' {
-		ext = seq[0][1:]
-	} else {
-		path = seq[0]
+	var prefix, suffix string
+	pseq := strings.Split(seq[0], "@")
+	prefix = pseq[0]
+	if len(pseq) > 1 {
+		suffix = pseq[1]
 	}
 
 	// Transformers
@@ -66,8 +66,8 @@ func NewProfile(spec string) (Profile, error) {
 	}
 
 	return Profile{
-		Path:        path,
-		Ext:         ext,
+		Prefix:      prefix,
+		Suffix:      suffix,
 		Resolutions: resolutions,
 		Sink:        sink,
 	}, nil
@@ -81,10 +81,10 @@ func (p Profile) String() string {
 	fmap := strings.Join(fseq, ":")
 
 	var bseq []string
-	if p.Ext != "" {
-		bseq = append(bseq, "."+p.Ext)
+	if p.Suffix == "" {
+		bseq = append(bseq, p.Prefix)
 	} else {
-		bseq = append(bseq, p.Path)
+		bseq = append(bseq, p.Prefix+"@"+p.Suffix)
 	}
 	bseq = append(bseq, fmap)
 
@@ -158,22 +158,15 @@ func (r Resolution) FileSuffix(path string) string {
 
 // `On` defines a key prefix at S3 bucket.
 // It triggers processing pipeline when object is uploaded into inbox.
-func On(path string) Profile {
-	return Profile{Path: path, Resolutions: []Resolution{}}
-}
-
-// `Of` defines a key suffix at S3 bucket.
-//
-//	It triggers processing pipeline when object is uploaded into inbox.
-func Of(ext string) Profile {
-	return Profile{Ext: ext, Resolutions: []Resolution{}}
+func On(prefix, suffix string) Profile {
+	return Profile{Prefix: prefix, Suffix: suffix, Resolutions: []Resolution{}}
 }
 
 // `Process` defines operation to be executed for media file.
 func (p Profile) Process(seq ...Resolution) Profile {
 	return Profile{
-		Path:        p.Path,
-		Ext:         p.Ext,
+		Prefix:      p.Prefix,
+		Suffix:      p.Suffix,
 		Resolutions: seq,
 		Sink:        p.Sink,
 	}
@@ -192,8 +185,8 @@ func Replica(label string) Resolution {
 // Sink output to event bus
 func (p Profile) SinkTo(sink string) Profile {
 	return Profile{
-		Path:        p.Path,
-		Ext:         p.Ext,
+		Prefix:      p.Prefix,
+		Suffix:      p.Suffix,
 		Resolutions: p.Resolutions,
 		Sink:        sink,
 	}
