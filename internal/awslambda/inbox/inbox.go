@@ -59,7 +59,8 @@ func Runner() {
 	var emitter codec.Emitter
 	eventbus := os.Getenv("CONFIG_SINK_EVENTBUS")
 	if eventbus != "" {
-		bridge, err := eventbridge.NewEnqueuer(eventbus,
+		bridge, err := eventbridge.NewEnqueuer(
+			eventbridge.WithEventBus(eventbus),
 			eventbridge.WithConfig(
 				swarm.WithSource("github.com/fogfish/medium"),
 				swarm.WithLogStdErr(),
