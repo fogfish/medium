@@ -21,7 +21,7 @@ import (
 )
 
 type Emitter interface {
-	Enq(context.Context, Event, ...string) error
+	Enq(context.Context, MediaPublished, ...string) error
 }
 
 type Codec struct {
@@ -89,7 +89,7 @@ func (codec *Codec) sink(ctx context.Context, evt swarm.Msg[*events.S3EventRecor
 		return
 	}
 
-	event := Event{S3EventRecord: *evt.Object}
+	event := MediaPublished{S3EventRecord: *evt.Object}
 
 	event.S3.Bucket.Name = os.Getenv("CONFIG_STORE_MEDIA")
 	event.S3.Bucket.Arn = strings.ReplaceAll(event.S3.Bucket.Arn, os.Getenv("CONFIG_STORE_INBOX"), os.Getenv("CONFIG_STORE_MEDIA"))

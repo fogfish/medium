@@ -10,7 +10,6 @@ package awsmedium
 
 import (
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/aws/aws-cdk-go/awscdk/v2"
@@ -180,13 +179,11 @@ func (stack *Codec) createInboxCodec(props *CodecProps, profile medium.Profile) 
 	}
 
 	name := stack.resource("inbox-codec-" + sfx)
-	tout := props.Deadline.ToSeconds(&awscdk.TimeConversionOptions{})
 
 	envs := map[string]*string{
-		"CONFIG_STORE_INBOX":          stack.Inbox.BucketName(),
-		"CONFIG_STORE_MEDIA":          props.Media.BucketName(),
-		"CONFIG_CODEC_PROFILE":        jsii.String(profile.String()),
-		"CONFIG_SWARM_TIME_TO_FLIGHT": jsii.String(strconv.Itoa(int(*tout))),
+		"CONFIG_STORE_INBOX":   stack.Inbox.BucketName(),
+		"CONFIG_STORE_MEDIA":   props.Media.BucketName(),
+		"CONFIG_CODEC_PROFILE": jsii.String(profile.String()),
 	}
 	if props.EventBus != nil {
 		envs["CONFIG_SINK_EVENTBUS"] = props.EventBus.EventBusName()
