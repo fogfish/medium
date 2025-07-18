@@ -27,8 +27,7 @@ type Meta struct {
 	ContentType string
 }
 
-// Event emitted (TODO: fix naming)
-type Event struct {
+type MediaPublished struct {
 	events.S3EventRecord
 	Variants []string
 }
