@@ -68,6 +68,7 @@ type bus struct {
 
 func (bus *bus) onEventS3(rcv <-chan swarm.Msg[*events.S3EventRecord], ack chan<- swarm.Msg[*events.S3EventRecord]) {
 	for evt := range rcv {
+		slog.Error("event", "evt", evt)
 		err := bus.codec.Process(context.Background(), evt)
 		if err != nil {
 			slog.Error("failed to process s3 event",

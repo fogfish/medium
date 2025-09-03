@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsevents"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambdaeventsources"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awssqs"
 	"github.com/aws/jsii-runtime-go"
@@ -88,6 +89,9 @@ type CodecProps struct {
 
 	// AWS S3 bucket to write media files
 	Media awss3.IBucket
+
+	// LogGroup to write logs
+	LogGroupName *string
 }
 
 func (props *CodecProps) assert() {
@@ -113,6 +117,7 @@ type Codec struct {
 	namespace string
 	version   tagver.Version
 
+	logs  awslogs.LogGroup
 	dlq   awssqs.Queue
 	Inbox awss3.Bucket
 }
@@ -126,6 +131,7 @@ func NewCodec(app awscdk.App, id *string, props *CodecProps) *Codec {
 		version:   props.Version,
 	}
 
+	stack.createLogGroup(props)
 	stack.createDLQ(props)
 	stack.createInboxBucket(props)
 	for _, profile := range props.Profiles {
@@ -137,6 +143,20 @@ func NewCodec(app awscdk.App, id *string, props *CodecProps) *Codec {
 
 func (stack *Codec) resource(id string) string {
 	return stack.version.Tag(stack.namespace + "-" + id)
+}
+
+func (stack *Codec) createLogGroup(props *CodecProps) {
+	if props.LogGroupName == nil {
+		props.LogGroupName = jsii.String(stack.resource("logs"))
+	}
+
+	stack.logs = awslogs.NewLogGroup(stack.Stack, jsii.String("LogGroup"),
+		&awslogs.LogGroupProps{
+			LogGroupName:  props.LogGroupName,
+			RemovalPolicy: awscdk.RemovalPolicy_DESTROY,
+			Retention:     awslogs.RetentionDays_FIVE_DAYS,
+		},
+	)
 }
 
 func (stack *Codec) createDLQ(props *CodecProps) {
@@ -215,6 +235,7 @@ func (stack *Codec) createInboxCodec(props *CodecProps, profile medium.Profile) 
 					DeadLetterQueueEnabled: jsii.Bool(true),
 					DeadLetterQueue:        stack.dlq,
 					MemorySize:             props.MemorySize,
+					LogGroup:               stack.logs,
 					Environment:            &envs,
 				},
 			},

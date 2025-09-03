@@ -15,6 +15,7 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
+	"net/url"
 
 	"log/slog"
 	"path/filepath"
@@ -40,7 +41,12 @@ func NewReader(stack http.Stack, fsys ReaderFS) *Reader {
 }
 
 func (r Reader) Get(ctx context.Context, evt swarm.Msg[*events.S3EventRecord]) (*Media, error) {
-	format, supported := r.isSupported(evt.Object.S3.Object.Key)
+	path, err := url.QueryUnescape(evt.Object.S3.Object.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	format, supported := r.isSupported(path)
 	if !supported {
 		return nil, errCodecNotSupported.With(nil, format)
 	}
@@ -50,7 +56,7 @@ func (r Reader) Get(ctx context.Context, evt swarm.Msg[*events.S3EventRecord]) (
 		slog.String("key", evt.Object.S3.Object.Key),
 	)
 
-	path := filepath.Join("/", evt.Object.S3.Object.Key)
+	path = filepath.Join("/", path)
 	switch format {
 	case MEDIA_JPEG:
 		return r.fetchMediaJpeg(ctx, path)
